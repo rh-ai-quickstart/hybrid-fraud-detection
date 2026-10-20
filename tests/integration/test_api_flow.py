@@ -8,8 +8,7 @@ from fastapi.testclient import TestClient
 SRC_DIR = pathlib.Path(__file__).resolve().parents[2] / "src"
 sys.path.insert(0, str(SRC_DIR))
 
-from scorer import MAX_BATCH_SIZE, app  # noqa: E402
-
+from scorer import MAX_BATCH_SIZE, app
 
 client = TestClient(app)
 

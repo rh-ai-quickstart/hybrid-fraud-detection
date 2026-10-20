@@ -7,7 +7,7 @@ import time
 SRC_DIR = pathlib.Path(__file__).resolve().parents[2] / "src"
 sys.path.insert(0, str(SRC_DIR))
 
-from scorer import DemoLLMScorer, HybridScorer, RuleEngine, TransactionRequest  # noqa: E402
+from scorer import DemoLLMScorer, HybridScorer, RuleEngine, TransactionRequest
 
 
 def _scorer() -> HybridScorer:
