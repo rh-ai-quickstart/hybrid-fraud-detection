@@ -198,7 +198,24 @@ cd hybrid-fraud-detection
 oc new-project hybrid-fraud-detection
 ```
 
-3. Install using Helm:
+3. Select the application image and install using Helm:
+
+The chart accepts an exact image digest through `app.image`; it uses that same
+artifact for the scorer and UI. The default image tag is a convenience, not proof
+that it contains the revision you are reviewing. Build and test the selected
+source, push it to a registry you control, then capture its immutable digest:
+
+```bash
+# Replace this repository with one you can push to.
+IMAGE=quay.io/your-organization/hybrid-fraud-detection
+podman build -t "$IMAGE:quickstart" -f src/Containerfile src/
+podman push --digestfile image.digest "$IMAGE:quickstart"
+APP_IMAGE="$IMAGE@$(cat image.digest)"
+```
+
+Pass `--set-string "app.image=$APP_IMAGE"` to either installation below.
+Building/pushing an image does not establish model quality or catalog acceptance.
+
 
 **Option A: Use your own model (MaaS - Model as a Service)**
 
@@ -209,20 +226,27 @@ oc create secret generic fraud-model-credentials \
   --from-literal=api-key='<api-key>'
 
 helm install hybrid-fraud-detection chart/ \
+  --set-string "app.image=$APP_IMAGE" \
   --set model.name=<model-name> \
   --set model.endpoint=<endpoint-url-or-v1-url> \
   --set model.existingSecret=fraud-model-credentials
 ```
+
+When your platform already provides a Secret containing `endpoint`, `name`
+and `api-key`, use `--set model.endpointFromSecret=true` together with
+`--set model.existingSecret=that-secret`. This keeps endpoint/model selection and
+credentials out of Helm values. The Secret must exist in the installation namespace.
+No Secret or cross-namespace credential access is created by the chart.
 
 The endpoint must expose the OpenAI-compatible `/v1/models` and `/v1/chat/completions` APIs. The scorer accepts either the provider root URL or a URL ending in `/v1`.
 
 **Option B: Deploy in demo mode (no external model required)**
 
 ```bash
-helm install hybrid-fraud-detection chart/
+helm install hybrid-fraud-detection chart/ --set-string "app.image=$APP_IMAGE"
 ```
 
-The scorer runs in demo mode with simulated LLM responses when no `MODEL_ENDPOINT` is configured.
+The scorer runs in demo mode with simulated LLM responses when no `MODEL_ENDPOINT` is configured. The interactive UI is enabled by default; set `ui.enabled=false` for API-only evaluation. Its scoring and statistics tabs show whether inference was simulated, performed, skipped or unavailable.
 
 **Local development with Docker Compose (recommended):**
 
@@ -260,8 +284,9 @@ SCORER_URL=http://localhost:8000 python src/ui.py
 # Check pod status
 oc get pods
 
-# Get the application URL
-echo "https://$(oc get route hybrid-fraud-detection-scorer -o jsonpath='{.spec.host}')"
+# Get the interactive UI and API URLs
+echo "UI: https://$(oc get route hybrid-fraud-detection-ui -o jsonpath='{.spec.host}')"
+echo "API: https://$(oc get route hybrid-fraud-detection-scorer -o jsonpath='{.spec.host}')"
 
 # Run Helm test
 helm test hybrid-fraud-detection

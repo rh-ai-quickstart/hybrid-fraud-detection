@@ -17,5 +17,8 @@ spec:
           curl -sf -X POST "${base_url}/api/v1/score" \
             -H "Content-Type: application/json" \
             -d '{"amount": 50, "country": "US", "category": "retail"}'
-          echo "Scorer smoke test: OK"
+          {{- if .Values.ui.enabled }}
+          curl -sf "http://{{ .Release.Name }}-scorer:7860/" > /dev/null
+          {{- end }}
+          echo "Scorer/UI smoke test: OK"
   restartPolicy: Never
