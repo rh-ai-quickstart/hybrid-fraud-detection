@@ -58,6 +58,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: azure/setup-helm@v4
       - run: helm lint chart/
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pytest PyYAML
+      - run: pytest -q tests/integration/test_chart_deployment.py
 
   readme-check:
     name: "Stage 5: Publication"

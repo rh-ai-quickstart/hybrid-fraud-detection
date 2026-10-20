@@ -11,8 +11,10 @@
 # Option B: Deploy with no model (demo mode -- scorer runs with simulated LLM)
 model:
   name: qwen2.5:0.5b
-  # endpoint: ""
-  # existingSecret: ""
+  endpoint: ""
+  existingSecret: ""
+  # Read endpoint, model name and API key from the same existing Secret.
+  endpointFromSecret: false
   apiKeySecretKey: api-key
 
 scoring:
@@ -23,5 +25,10 @@ scoring:
 # Application configuration
 app:
   replicas: 1
+  # Override with the exact image you built/tested, preferably repository@sha256:digest.
   image: quay.io/redhat-gpte/hybrid-fraud-detection:latest
   imagePullPolicy: IfNotPresent
+
+# The interactive participant UI shares the scorer Pod and uses loopback HTTP.
+ui:
+  enabled: true

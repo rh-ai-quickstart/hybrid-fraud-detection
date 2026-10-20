@@ -4,7 +4,6 @@ from pathlib import Path
 
 import yaml
 
-
 REGISTRY = Path(__file__).with_name("claim_registry.yaml")
 
 

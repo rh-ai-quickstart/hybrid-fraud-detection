@@ -1,3 +1,9 @@
+{{- if and .Values.model.endpointFromSecret (not .Values.model.existingSecret) }}
+{{- fail "model.existingSecret is required when model.endpointFromSecret is true" }}
+{{- end }}
+{{- if and (contains "@" .Values.app.image) (not (regexMatch "^.+@sha256:[a-f0-9]{64}$" .Values.app.image)) }}
+{{- fail "app.image digest reference must end with @sha256: followed by 64 lowercase hex characters" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,20 +23,40 @@ spec:
         app.kubernetes.io/name: hybrid-fraud-detection
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
+      automountServiceAccountToken: false
       containers:
         - name: scorer
           image: {{ .Values.app.image }}
           imagePullPolicy: {{ .Values.app.imagePullPolicy }}
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
           ports:
             - containerPort: 8000
               protocol: TCP
           env:
-            {{- if .Values.model.endpoint }}
+            {{- if .Values.model.endpointFromSecret }}
+            - name: MODEL_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.model.existingSecret | quote }}
+                  key: endpoint
+            {{- else if .Values.model.endpoint }}
             - name: MODEL_ENDPOINT
               value: {{ .Values.model.endpoint | quote }}
             {{- end }}
+            {{- if .Values.model.endpointFromSecret }}
+            - name: MODEL_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.model.existingSecret | quote }}
+                  key: name
+            {{- else }}
             - name: MODEL_NAME
               value: {{ .Values.model.name | default "granite-2b-cpu" | quote }}
+            {{- end }}
             {{- if .Values.model.existingSecret }}
             - name: MODEL_API_KEY
               valueFrom:
@@ -39,7 +65,7 @@ spec:
                   key: {{ .Values.model.apiKeySecretKey | default "api-key" | quote }}
             {{- end }}
             - name: DEMO_MODE
-              value: {{ if .Values.model.endpoint }}"false"{{ else }}"true"{{ end }}
+              value: {{ if or .Values.model.endpoint .Values.model.endpointFromSecret }}"false"{{ else }}"true"{{ end }}
             - name: RULE_WEIGHT
               value: {{ .Values.scoring.ruleWeight | quote }}
             - name: LLM_WEIGHT
@@ -65,3 +91,40 @@ spec:
             limits:
               cpu: "1"
               memory: 512Mi
+        {{- if .Values.ui.enabled }}
+        - name: ui
+          image: {{ .Values.app.image }}
+          imagePullPolicy: {{ .Values.app.imagePullPolicy }}
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          command: ["python", "ui.py"]
+          ports:
+            - containerPort: 7860
+              protocol: TCP
+              name: ui
+          env:
+            - name: SCORER_URL
+              value: http://127.0.0.1:8000
+          readinessProbe:
+            httpGet:
+              path: /
+              port: ui
+            initialDelaySeconds: 8
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: ui
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+        {{- end }}

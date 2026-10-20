@@ -12,6 +12,12 @@ spec:
       targetPort: 8000
       protocol: TCP
       name: http
+    {{- if .Values.ui.enabled }}
+    - port: 7860
+      targetPort: ui
+      protocol: TCP
+      name: ui
+    {{- end }}
   selector:
     app.kubernetes.io/name: hybrid-fraud-detection
     app.kubernetes.io/instance: {{ .Release.Name }}

@@ -20,7 +20,7 @@ import pytest
 SRC_DIR = pathlib.Path(__file__).resolve().parents[2] / "src"
 sys.path.insert(0, str(SRC_DIR))
 
-from scorer import (  # noqa: E402
+from scorer import (
     LLM_WEIGHT,
     RULE_WEIGHT,
     SKIP_HIGH_THRESHOLD,
@@ -209,6 +209,24 @@ class TestLLMScoring:
                 200,
                 json={"choices": [{"message": {"content": "75/100"}}]},
             )
+
+        scorer = LLMScorer(endpoint="https://models.example.test", model="example-model")
+        scorer.client.close()
+        scorer.client = httpx.Client(transport=httpx.MockTransport(handler))
+        try:
+            with pytest.raises(ValueError, match="invalid score payload"):
+                scorer.score(_make_tx(amount=5000), [])
+        finally:
+            scorer.client.close()
+
+    @pytest.mark.parametrize(
+        "content",
+        ['{"score": true}', '{"score": false}', '{"score": "72"}',
+         '{"score": null}', '{"score": []}'],
+    )
+    def test_non_numeric_llm_score_is_rejected(self, content):
+        def handler(_request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
 
         scorer = LLMScorer(endpoint="https://models.example.test", model="example-model")
         scorer.client.close()

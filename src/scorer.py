@@ -261,6 +261,8 @@ class LLMScorer:
         try:
             payload = json.loads(content)
             raw_score = payload["score"] if isinstance(payload, dict) else payload
+            if isinstance(raw_score, bool) or not isinstance(raw_score, (int, float)):
+                raise TypeError("LLM score must be a JSON number")
             llm_score = float(raw_score)
         except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
             raise ValueError("LLM returned an invalid score payload") from exc
